@@ -24,28 +24,28 @@ var CmdHttpServer = &cobra.Command{
 
 func cmdHttpServer(cmd *cobra.Command, args []string) {
 	engine := gin.Default()
-	logger, err := zap.NewDevelopment()
+	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	port := args[1]
+	if len(args) == 0 {
+		logger.Error("required CLI parameter <port> is missing")
+		return
+	}
+
+	port := args[0]
 	if _, err := strconv.Atoi(port); err != nil {
-		logger.Error("port should be numeric", zap.Error(err))
+		logger.Error("<port> should be a numeric", zap.Error(err))
 		return
 	}
 
 	validate := validator.New()
 	queueResolver := service.NewQueueResolver()
 
-	nameQueue := queueResolver.ResolveQueue(service.NameQueue)
-	nameController := controller.NameController(logger, nameQueue, validate)
-	nameController.SetRoutes(engine)
-
-	colorQueue := queueResolver.ResolveQueue(service.ColorQueue)
-	colorController := controller.ColorController(logger, colorQueue, validate)
-	colorController.SetRoutes(engine)
+	queueController := controller.QueueController(logger, queueResolver, validate)
+	queueController.SetRoutes(engine)
 
 	signalChan := make(chan os.Signal)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
@@ -58,7 +58,6 @@ func cmdHttpServer(cmd *cobra.Command, args []string) {
 		}
 	}(port)
 
-	// wait for stop application
 	select {
 	case <-signalChan:
 		logger.Info("stop signal received")
