@@ -24,7 +24,7 @@ var CmdHttpServer = &cobra.Command{
 
 func cmdHttpServer(cmd *cobra.Command, args []string) {
 	engine := gin.Default()
-	logger, err := zap.NewProduction()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatal(err)
 		return

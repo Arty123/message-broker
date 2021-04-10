@@ -1,6 +1,14 @@
 package service
 
-import "sync"
+import (
+	"context"
+	"errors"
+	"sync"
+	"time"
+)
+
+const timeoutLimit = 30 // sec
+var ErrorQueueTimeoutLimit = errors.New("timeout limit exceeded")
 
 type node struct {
 	data string
@@ -59,6 +67,31 @@ func (q *Queue) Dequeue() string {
 	q.count--
 
 	return n.data
+}
+
+func (q *Queue) DequeueWithTimeout(t int) (string, error) {
+	if t > timeoutLimit {
+		return "", ErrorQueueTimeoutLimit
+	}
+
+	d := time.Now().Add(time.Duration(t) * time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), d)
+	defer cancel()
+
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			value := q.Dequeue()
+			if value != "" {
+				return value, nil
+			}
+		case <-ctx.Done():
+			return "", nil
+		}
+	}
 }
 
 func (q *Queue) Head() string {

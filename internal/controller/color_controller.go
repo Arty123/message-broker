@@ -6,6 +6,7 @@ import (
 	"github.com/message-broker/internal/service"
 	"go.uber.org/zap"
 	"net/http"
+	"strconv"
 )
 
 type colorController struct {
@@ -28,6 +29,12 @@ func (c *colorController) SetRoutes(gin *gin.Engine) {
 }
 
 func (c *colorController) GetAction(ctx *gin.Context) {
+	timeout := ctx.Query("timeout")
+	if timeout != "" {
+		c.dequeueWithTimeout(ctx, timeout)
+		return
+	}
+
 	value := c.queue.Dequeue()
 	if value != "" {
 		ctx.JSON(http.StatusOK, successHttpResponse{Value: value})
@@ -47,4 +54,28 @@ func (c *colorController) PutAction(ctx *gin.Context) {
 	}
 
 	c.queue.Enqueue(value)
+}
+
+func (c *colorController) dequeueWithTimeout(ctx *gin.Context, timeout string) {
+	c.logger.Debug("dequeue with timeout")
+	t, err := strconv.Atoi(timeout)
+	if err != nil {
+		c.logger.Error("timeout should be an integer value", zap.Error(err))
+		ctx.JSON(http.StatusBadRequest, &errorHttpResponse{ErrorMessage: badRequestErrorMessage})
+		return
+	}
+
+	value, err := c.queue.DequeueWithTimeout(t)
+	if err == service.ErrorQueueTimeoutLimit {
+		c.logger.Error(service.ErrorQueueTimeoutLimit.Error())
+		ctx.JSON(http.StatusBadRequest, &errorHttpResponse{ErrorMessage: badRequestErrorMessage})
+		return
+	}
+
+	if value != "" {
+		ctx.JSON(http.StatusOK, successHttpResponse{Value: value})
+		return
+	}
+
+	ctx.JSON(http.StatusNotFound, &errorHttpResponse{ErrorMessage: notFoundErrorMessage})
 }
