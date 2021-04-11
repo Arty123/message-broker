@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
@@ -74,11 +73,9 @@ func (q *Queue) DequeueWithTimeout(t int) (string, error) {
 		return "", ErrorQueueTimeoutLimit
 	}
 
-	d := time.Now().Add(time.Duration(t) * time.Second)
-	ctx, cancel := context.WithDeadline(context.Background(), d)
-	defer cancel()
+	timer := time.NewTimer(time.Duration(t) * time.Second)
 
-	ticker := time.NewTicker(10 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -88,7 +85,7 @@ func (q *Queue) DequeueWithTimeout(t int) (string, error) {
 			if value != "" {
 				return value, nil
 			}
-		case <-ctx.Done():
+		case <-timer.C:
 			return "", nil
 		}
 	}

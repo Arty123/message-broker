@@ -11,11 +11,6 @@ type queueResolver struct {
 	Lock     *sync.Mutex
 }
 
-const (
-	NameQueue  = "name"
-	ColorQueue = "color"
-)
-
 // NewQueueResolver is a structure for communicating with the broker through another transport.
 // @todo enable DI in the project and inject it as a singleton everywhere
 func NewQueueResolver() QueueResolver {
