@@ -74,7 +74,6 @@ func (q *Queue) DequeueWithTimeout(limit int) (string, error) {
 	}
 
 	timer := time.NewTimer(time.Duration(limit) * time.Second)
-	defer timer.Stop()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
