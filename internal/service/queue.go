@@ -74,6 +74,7 @@ func (q *Queue) DequeueWithTimeout(limit int) (string, error) {
 	}
 
 	timer := time.NewTimer(time.Duration(limit) * time.Second)
+	defer timer.Stop()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -83,6 +84,9 @@ func (q *Queue) DequeueWithTimeout(limit int) (string, error) {
 		case <-ticker.C:
 			value := q.Dequeue()
 			if value != "" {
+				if !timer.Stop() {
+					<-timer.C
+				}
 				return value, nil
 			}
 		case <-timer.C:
