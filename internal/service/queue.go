@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-const timeoutLimit = 30 // sec
+const timeoutMaxLimit = 30 // sec
 var ErrorQueueTimeoutLimit = errors.New("timeout limit exceeded")
 
 type node struct {
@@ -68,12 +68,12 @@ func (q *Queue) Dequeue() string {
 	return n.data
 }
 
-func (q *Queue) DequeueWithTimeout(t int) (string, error) {
-	if t > timeoutLimit {
+func (q *Queue) DequeueWithTimeout(limit int) (string, error) {
+	if limit > timeoutMaxLimit {
 		return "", ErrorQueueTimeoutLimit
 	}
 
-	timer := time.NewTimer(time.Duration(t) * time.Second)
+	timer := time.NewTimer(time.Duration(limit) * time.Second)
 
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
