@@ -19,17 +19,17 @@ type Queue struct {
 	tail  *node
 	count int
 	lock  *sync.Mutex
+	cond  *sync.Cond
 }
 
 func NewQueue() *Queue {
 	q := &Queue{}
 	q.lock = &sync.Mutex{}
+	q.cond = sync.NewCond(q.lock)
 	return q
 }
 
 func (q *Queue) Len() int {
-	q.lock.Lock()
-	defer q.lock.Unlock()
 	return q.count
 }
 
@@ -47,12 +47,17 @@ func (q *Queue) Enqueue(item string) {
 		q.tail = n
 	}
 	q.count++
+	q.cond.Signal()
 }
 
 func (q *Queue) Dequeue() string {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	return q.dequeueWithoutBlocking()
+}
+
+func (q *Queue) dequeueWithoutBlocking() string {
 	if q.head == nil {
 		return ""
 	}
@@ -73,23 +78,26 @@ func (q *Queue) DequeueWithTimeout(limit int) (string, error) {
 		return "", ErrorQueueTimeoutLimit
 	}
 
-	timer := time.NewTimer(time.Duration(limit) * time.Second)
+	q.lock.Lock()
+	defer q.lock.Unlock()
 
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	resultCh := make(chan string)
+	go func() {
+		for q.Len() == 0 {
+			q.cond.Wait()
+		}
+
+		resultCh <- q.dequeueWithoutBlocking()
+	}()
+
+	timer := time.NewTimer(time.Duration(limit) * time.Second)
 
 	for {
 		select {
-		case <-ticker.C:
-			value := q.Dequeue()
-			if value != "" {
-				if !timer.Stop() {
-					<-timer.C
-				}
-				return value, nil
-			}
 		case <-timer.C:
-			return "", nil
+			q.Enqueue("timeout")
+		case result := <-resultCh:
+			return result, nil
 		}
 	}
 }
